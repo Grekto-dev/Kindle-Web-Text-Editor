@@ -1,13 +1,25 @@
-# Kindle Text Editor
+# Kindle Web Text Editor
 
-A lightweight, web-based text editor optimized for the Kindle experimental browser and modern desktop/mobile browsers.  
-Save, load and share documents via a simple 6-character code—no user accounts, no local files required.
+A lightweight, web-based text editor optimized for the Kindle native browser and modern desktop/mobile browsers.  
+Save, load and share documents via a simple 6-character code — no user accounts, no local files required.
 
 ---
 
 ## 🚀 Project Overview
 
-**Kindle Text Editor** lets you write and edit plain or rich text directly in your browser and store it on a central server. You don’t need to install anything or create an account:
+As is widely known, the Kindle does not include a native text editor. While it does have an experimental web browser, it is extremely limited — it does not support file uploads or downloads, does not run complex scripts, and only offers basic HTML/CSS rendering.
+
+Kindle Web Text Editor was created to address this gap: a lightweight, self-hosted web application that runs smoothly in the Kindle’s browser and allows users to write, save, and reopen documents directly — no installation, no accounts.
+
+To bypass the lack of file support, the app uses a simple code-based system: when you save a document, a unique 6-character code (e.g., AB12CD) is generated. Later, you can retrieve the same document on any device by entering that code.
+
+This approach enables cross-device access and backup without relying on uploads, downloads, or advanced browser features — making it ideal for e-readers and other constrained environments.
+
+Designed for speed and simplicity, Kindle Web Text Editor supports plain and rich text, and works seamlessly even on monochrome screens.
+
+---
+
+**Kindle Web Text Editor** lets you write and edit plain or rich text directly in your browser and store it on a central server. You don’t need to install anything or create an account:
 
 - **Document Code**: Each document is identified by a unique 6-character code (e.g. `AB12CD`).
 - **Cross-Device Sync**: Write on your PC, continue on your Kindle, then download back to your desktop.
