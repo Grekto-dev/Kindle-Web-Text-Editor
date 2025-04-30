@@ -135,4 +135,5 @@ Please keep your document code secure and do not use this editor to store sensit
 ## 📜 License & Credits
 
 Created by **Pedro Nogueira**
+
 Feel free to fork, improve and contribute!
