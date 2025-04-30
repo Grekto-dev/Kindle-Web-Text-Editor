@@ -45,8 +45,8 @@ Save, load and share documents via a simple 6-character code—no user accounts,
 
 1. **Clone the repo**  
    ```bash
-   git clone https://github.com/your-username/kindle-text-editor.git
-   cd kindle-text-editor
+   git clone https://github.com/Grekto-dev/Kindle-Web-Text-Editor.git
+   cd Kindle-Web-Text-Editor
    ```
 
 2. **Build the Docker image**  
@@ -56,10 +56,7 @@ Save, load and share documents via a simple 6-character code—no user accounts,
 
 3. **Run the container** (exposes container port 3000 on host port 3636)  
    ```bash
-   docker run -d \
-     -p 3636:3000 \
-     --name kindle-editor \
-     kindle-editor
+   docker run -d -p 3636:3000 --name kindle-editor kindle-editor
    ```
 
 4. **Open the editor**  
@@ -97,10 +94,31 @@ docker run -d -p YOUR_PORT:3000 --name kindle-editor kindle-editor
 
 ---
 
-## 📜 License & Credits
+🧭 Next Steps
+Planned improvements for upcoming versions include:
 
-Created by **Pedro Nogueira**  
-Version **0.0.1** (05.2025)  
-Feel free to fork, improve and contribute!
+🔒 End-to-end encryption of saved documents
+
+🗑️ Auto-expiration of unused or abandoned documents
+
+🧩 Custom document titles and optional metadata
 
 ---
+
+⚠️ Disclaimer
+
+This is an alpha-stage open source project, intended for lightweight use only.
+Use at your own risk. By default:
+
+Documents are stored unencrypted on the server.
+
+Anyone with your document code can view, edit, overwrite or delete your content.
+
+There is no login, ownership system or recovery mechanism.
+
+Please keep your document code secure and do not use this editor to store sensitive or private information. Security features will be introduced in future versions.
+
+## 📜 License & Credits
+
+Created by **Pedro Nogueira**
+Feel free to fork, improve and contribute!
