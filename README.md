@@ -94,7 +94,7 @@ docker run -d -p YOUR_PORT:3000 --name kindle-editor kindle-editor
 
 ---
 
-🧭 Next Steps
+## 🧭 Next Steps
 Planned improvements for upcoming versions include:
 
 🔒 End-to-end encryption of saved documents
@@ -105,7 +105,7 @@ Planned improvements for upcoming versions include:
 
 ---
 
-⚠️ Disclaimer
+## ⚠️ Disclaimer
 
 This is an alpha-stage open source project, intended for lightweight use only.
 Use at your own risk. By default:
@@ -117,6 +117,8 @@ Anyone with your document code can view, edit, overwrite or delete your content.
 There is no login, ownership system or recovery mechanism.
 
 Please keep your document code secure and do not use this editor to store sensitive or private information. Security features will be introduced in future versions.
+
+---
 
 ## 📜 License & Credits
 
