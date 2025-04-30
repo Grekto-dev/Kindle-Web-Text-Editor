@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n-key="title">Editor Simples para Kindle</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { font-family: Arial, sans-serif; background: #fff; color: #000; }
+    .container { display: flex; flex-direction: column; height: 100%; }
+    .header { flex: 0 0 auto; background: #fff; }
+    .toolbar-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0; padding: 2px 4px; }
+    .toolbar-row button { background: #eee; border: 1px solid #ccc; border-radius: 3px; padding: 4px 6px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+    .toolbar-row button.active { background: #ccc; }
+    #row-actions button { font-size: 12px; padding: 3px 5px; }
+    #row-nav { justify-content: flex-start; }
+    #row-nav #status { margin-left: auto; padding: 4px 6px; font-size: 12px; }
+    .editor-container { flex: 1 1 auto; overflow: auto; }
+    #editor { padding: 8px; font-size: 16px; min-height: 100%; outline: none; border: 1px solid #000; }
+    body:not(.dark) mark {	background-color: #555; /* cinza escuro visível no Kindle */	color: #fff;	}
+	body.dark mark { background-color: yellow; color: #000;	}
+    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; }
+    .modal-content { background: #fff; padding: 16px; border-radius: 4px; width: 90%; max-width: 300px; text-align: center; }
+    .modal-content input[type=text], .modal-content input[type=file] { width: 100%; margin: 8px 0; padding: 6px; font-size: 14px; }
+    .modal-content label, .modal-content p { font-size: 14px; margin: 4px 0; }
+    .modal-content button { margin: 4px; padding: 6px 12px; font-size: 14px; }
+    .floating-alert { position: fixed; bottom: 10px; right: 10px; background: #333; color: #fff; padding: 8px; border-radius: 4px; display: none; }
+	body.dark {	background: #000; color: #fff; }	
+	body.dark .toolbar-row button {	background: #222; border-color: #555; color: #fff; }	
+	body.dark #editor { background: #111; color: #fff; border-color: #555; }	
+	body.dark .modal-content { background: #222; color: #fff; }
+	body.dark .header { background: #000; }
+	body.dark .toolbar-row { background: #111; }
+	body.dark .toolbar-row button { background: #333; border-color: #666; color: #fff; }
+	body.dark .toolbar-row button.active { background: #555; }
+	.editor-container { border-top: 1px solid #000; /* padrão: linha preta */ }
+	body.dark .editor-container { border-top: 1px solid #fff; /* modo escuro: linha branca */ }
+	#toolbar-divider { height: 1px; background-color: #000; flex: 0 0 auto; }
+	body.dark #toolbar-divider { background-color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <!-- Linha 1: Código + idioma -->
+      <div class="toolbar-row" id="row-code">
+        <span data-i18n-key="docCodeLabel">Código do Documento:</span>
+        <span id="doc-code">------</span>
+        <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+		  <label><input type="checkbox" id="lang-pt" checked> <span data-i18n-key="checkboxPt">Português</span></label>
+		  <label><input type="checkbox" id="lang-en"> <span data-i18n-key="checkboxEn">English</span></label>
+		  <label>
+			<select id="theme-select" style="font-size: 12px; padding: 2px;">
+			  <option value="light" selected data-i18n-key="themeLight">Claro</option>
+			  <option value="dark" data-i18n-key="themeDark">Escuro</option>
+			</select>
+		  </label>
+		</div>
+      </div>
+      <!-- Linha 2: ações -->
+      <div class="toolbar-row" id="row-actions">
+        <button id="new-btn" data-i18n-key="btnNew">Novo</button>
+        <button id="save-btn" data-i18n-key="btnSave" disabled>Salvar</button>
+        <button id="load-btn" data-i18n-key="btnLoad">Carregar</button>
+        <button id="clear-btn" data-i18n-key="btnClear">Limpar</button>
+        <button id="download-btn" data-i18n-key="btnDownload">Download</button>
+        <button id="upload-btn" data-i18n-key="btnUpload">Upload</button>
+        <button id="delete-doc-btn" data-i18n-key="btnDeleteDoc">Deletar Documento</button>
+        <button id="help-btn" data-i18n-key="btnHelp">Ajuda</button>
+      </div>
+      <!-- Linha 3: formatação básica + marcar -->
+      <div class="toolbar-row" id="row-format1">
+        <button data-cmd="bold" id="btn-bold" data-i18n-key="btnBold">Negrito</button>
+        <button data-cmd="italic" id="btn-italic" data-i18n-key="btnItalic">Itálico</button>
+        <button data-cmd="underline" id="btn-underline" data-i18n-key="btnUnderline">Sublinhado</button>
+        <button data-cmd="strikeThrough" id="btn-strike" data-i18n-key="btnStrike">Riscado</button>
+        <button id="mark-btn" data-i18n-key="btnMark">Marcar</button>
+        <button id="font-decrease" data-i18n-key="btnFontDecrease">A-</button>
+        <button id="font-increase" data-i18n-key="btnFontIncrease">A+</button>
+      </div>
+      <!-- Linha 4: alinhamento + limpar formatação -->
+      <div class="toolbar-row" id="row-format2">
+        <button data-cmd="justifyLeft" data-i18n-key="btnAlignLeft">Esquerda</button>
+        <button data-cmd="justifyCenter" data-i18n-key="btnAlignCenter">Centralizar</button>
+        <button data-cmd="justifyRight" data-i18n-key="btnAlignRight">Direita</button>
+        <button data-cmd="justifyFull" data-i18n-key="btnJustify">Justificar</button>
+        <button id="remove-format-btn" data-cmd="removeFormat" data-i18n-key="btnRemoveFormat">Limpar Formatação</button>
+      </div>
+      <!-- Linha 5: undo/redo e clipboard -->
+      <div class="toolbar-row" id="row-clip">
+        <button data-cmd="undo" data-i18n-key="btnUndo">Desfazer</button>
+        <button data-cmd="redo" data-i18n-key="btnRedo">Refazer</button>
+        <button id="copy-btn" data-i18n-key="btnCopy">Copiar</button>
+        <button id="cut-btn" data-i18n-key="btnCut">Recortar</button>
+        <button id="paste-btn" data-i18n-key="btnPaste">Colar</button>
+        <button id="select-all-btn" data-i18n-key="btnSelectAll">Selecionar Tudo</button>
+      </div>
+      <!-- Linha 6: navegação + status -->
+      <div class="toolbar-row" id="row-nav">
+        <button id="nav-up" data-i18n-key="btnUp">↑</button>
+        <button id="nav-down" data-i18n-key="btnDown">↓</button>
+        <button id="nav-left" data-i18n-key="btnLeft">←</button>
+        <button id="nav-right" data-i18n-key="btnRight">→</button>
+        <button id="delete-btn" data-i18n-key="btnDelete">Delete</button>
+        <span id="status"><span data-i18n-key="statusWords">Palavras</span>: 0 | <span data-i18n-key="statusChars">Caracteres</span>: 0</span>
+      </div>
+    </div>
+	<div id="toolbar-divider"></div>
+    <div class="editor-container">
+      <div id="editor" contenteditable="true"></div>
+    </div>
+  </div>
+
+  <!-- Modais de diálogos -->
+  <div id="confirm-modal" class="modal">
+    <div class="modal-content">
+      <p data-i18n-key="modalClearQuestion">Deseja limpar o documento atual?</p>
+      <button id="confirm-yes" data-i18n-key="modalClearYes">Sim</button>
+      <button id="confirm-no" data-i18n-key="modalClearNo">Não</button>
+    </div>
+  </div>
+  <div id="load-modal" class="modal">
+    <div class="modal-content">
+      <p data-i18n-key="modalLoadPrompt">Digite o código do documento:</p>
+      <input type="text" id="load-code-input" data-i18n-key="loadCodePlaceholder" placeholder="">
+      <button id="load-confirm-btn" data-i18n-key="modalLoadOK">OK</button>
+      <button id="load-cancel-btn" data-i18n-key="modalLoadCancel">Cancelar</button>
+    </div>
+  </div>
+  <div id="download-modal" class="modal">
+    <div class="modal-content">
+      <p data-i18n-key="modalDownloadPrompt">Escolha formato para download:</p>
+      <label><input type="checkbox" id="download-txt"> <span data-i18n-key="modalDownloadTxt">TXT</span></label>
+      <label><input type="checkbox" id="download-html"> <span data-i18n-key="modalDownloadHtml">HTML</span></label>
+      <button id="download-confirm-btn">OK</button>
+      <button id="download-cancel-btn" data-i18n-key="modalLoadCancel">Cancelar</button>
+    </div>
+  </div>
+  <div id="upload-modal" class="modal">
+    <div class="modal-content">
+      <p data-i18n-key="modalUploadPrompt">Selecione arquivo (TXT ou HTML):</p>
+      <input type="file" id="upload-input" accept=".txt,.html">
+      <button id="upload-confirm-btn">OK</button>
+      <button id="upload-cancel-btn" data-i18n-key="modalLoadCancel">Cancelar</button>
+    </div>
+  </div>
+  <div id="help-modal" class="modal">
+    <div class="modal-content">
+      <div id="help-content-pt" class="help-content" style="text-align: left; font-size: 14px; max-height: 60vh; overflow-y: auto;">
+        <p><strong>SOBRE ESTE EDITOR</strong></p>
+        <p>Este é um editor de texto leve, desenvolvido para ser compatível com o navegador experimental do Kindle. Ele permite que você escreva, edite e acesse documentos a partir de qualquer dispositivo, sem necessidade de login ou instalação.</p>
+      
+        <p><strong>FUNCIONAMENTO GERAL</strong></p>
+        <p>Todos os textos criados ou editados aqui são armazenados no servidor usando um sistema de identificação por código único de 6 caracteres (exemplo: AB123C). Esse código funciona como a "chave" para recuperar ou continuar um documento salvo anteriormente — tanto no Kindle quanto em um computador ou celular.</p>
+      
+        <p><strong>COMO FUNCIONA O SALVAMENTO</strong></p>
+        <ul>
+          <li>Ao clicar em "Salvar" pela primeira vez, um código é automaticamente gerado e exibido no topo da tela ("Código do Documento").</li>
+          <li>Esse código é o identificador único do seu documento. Guarde esse código com cuidado.</li>
+          <li>Nos salvamentos seguintes, o mesmo código será usado — o conteúdo será sobrescrito no mesmo documento.</li>
+        </ul>
+      
+        <p><strong>COMO ACESSAR UM DOCUMENTO EM OUTRO DISPOSITIVO</strong></p>
+        <ul>
+          <li>No computador ou celular: acesse o editor e clique em "Carregar", digitando o código salvo.</li>
+          <li>No Kindle: clique em "Carregar", digite o código, e o texto será recuperado do servidor.</li>
+        </ul>
+      
+        <p><strong>COMO TRANSFERIR ARQUIVOS ENTRE DISPOSITIVOS</strong></p>
+        <p>O sistema foi pensado para que você possa:</p>
+        <ul>
+          <li>Criar um texto no PC e continuar no Kindle (ou o contrário).</li>
+          <li>Editar no Kindle e fazer o download no PC como backup.</li>
+          <li>Subir um texto do PC para o servidor e depois carregá-lo no Kindle.</li>
+        </ul>
+        <p>Você pode usar três formas principais para isso:</p>
+        <ul>
+          <li><strong>Código do Documento</strong>: a forma mais prática, tudo fica salvo no servidor e acessível com o código.</li>
+          <li><strong>Botão "Upload"</strong>: envia um arquivo .txt ou .html do dispositivo local para o editor.</li>
+          <li><strong>Botão "Download"</strong>: salva o conteúdo do editor como arquivo .txt ou .html no dispositivo.</li>
+        </ul>
+      
+        <p><strong>LIMITAÇÕES DO NAVEGADOR DO KINDLE</strong></p>
+        <p>O navegador do Kindle não oferece suporte completo para upload ou download de arquivos. Por isso, essas funções funcionam melhor em navegadores modernos. No Kindle, recomenda-se sempre usar o sistema de código.</p>
+      
+        <p><strong>BOTÕES E FUNÇÕES DA INTERFACE</strong></p>
+        <ul>
+          <li><strong>Novo</strong>: limpa o editor e começa um novo documento (sem código).</li>
+          <li><strong>Salvar</strong>: salva o conteúdo atual no servidor.</li>
+          <li><strong>Carregar</strong>: recupera um documento salvo anteriormente, com base no código.</li>
+          <li><strong>Limpar</strong>: apaga o conteúdo atual do editor (com confirmação).</li>
+          <li><strong>Download</strong>: exporta o conteúdo como arquivo .txt e/ou .html (uso recomendado em PC).</li>
+          <li><strong>Upload</strong>: importa um arquivo .txt ou .html (apenas em navegadores modernos).</li>
+          <li><strong>Deletar Documento</strong>: remove definitivamente o documento do servidor. Essa ação é irreversível.</li>
+          <li><strong>Tema</strong>: alterna entre visual claro e escuro.</li>
+          <li><strong>Idioma</strong>: alterna entre português e inglês.</li>
+        </ul>
+      
+        <p><strong>AVISO DE SEGURANÇA</strong></p>
+        <p>Esta é uma versão alfa do editor. Os arquivos não são armazenados com criptografia, e qualquer pessoa que possua o código do documento poderá acessá-lo. Guarde seu código com cuidado e use por sua conta e risco.</p>
+        <p>Atualizações com mecanismos de segurança serão incluídas futuramente. No momento, o foco está nas funcionalidades básicas do aplicativo.</p>
+		
+		<div style="text-align: center; margin-top: 16px;">
+		<p><em>Criado por Pedro Nogueira</em></p>
+		<p><em>Versão 0.0.1</em></p>
+		<p><em>(05.2025)</em></p>
+		</div>
+		</div> 
+		<div id="help-content-en" class="help-content" style="display: none; text-align: left; font-size: 14px; max-height: 60vh; overflow-y: auto;">
+        <p><strong>ABOUT THIS EDITOR</strong></p>
+        <p>This is a lightweight text editor designed to be compatible with the Kindle's experimental browser. It allows you to write, edit, and access documents from any device, without needing to log in or install any apps.</p>
+        
+        <p><strong>GENERAL FUNCTIONALITY</strong></p>
+        <p>All texts created or edited here are stored on the server using a unique 6-character code (example: AB123C). This code works as a "key" to retrieve or continue a saved document — whether you're on a Kindle, computer, or mobile phone.</p>
+        
+        <p><strong>HOW SAVING WORKS</strong></p>
+        <ul>
+          <li>When you click "Save" for the first time, a code is automatically generated and shown at the top of the screen ("Document Code").</li>
+          <li>This code uniquely identifies your document. Keep it safe, as you will need it to load the document later.</li>
+          <li>Future saves will overwrite the document associated with this same code.</li>
+        </ul>
+        
+        <p><strong>HOW TO ACCESS A DOCUMENT FROM ANOTHER DEVICE</strong></p>
+        <ul>
+          <li>On a computer or phone: open the editor and click "Load", entering your saved code.</li>
+          <li>On Kindle: click "Load", enter the code, and the text will be retrieved from the server.</li>
+        </ul>
+        
+        <p><strong>HOW TO TRANSFER FILES BETWEEN DEVICES</strong></p>
+        <p>This system is designed to let you:</p>
+        <ul>
+          <li>Create a document on your PC and continue editing it on the Kindle (or the other way around).</li>
+          <li>Edit on the Kindle and download a backup on your PC.</li>
+          <li>Upload a document from your PC to the server and then load it on the Kindle using the code.</li>
+        </ul>
+        <p>There are three main ways to do this:</p>
+        <ul>
+          <li><strong>Document Code</strong>: the simplest method. Everything is saved on the server and accessible from any browser using the code.</li>
+          <li><strong>Upload</strong>: imports a .txt or .html file from your device into the editor.</li>
+          <li><strong>Download</strong>: exports your text as a .txt or .html file to your device.</li>
+        </ul>
+        
+        <p><strong>KINDLE BROWSER LIMITATIONS</strong></p>
+        <p>The Kindle browser does not fully support file uploads or downloads. These functions work best on modern browsers. On Kindle, it is recommended to rely on the document code system for saving and accessing content.</p>
+        
+        <p><strong>INTERFACE BUTTONS AND FEATURES</strong></p>
+        <ul>
+          <li><strong>New</strong>: clears the editor and starts a new document (without a code).</li>
+          <li><strong>Save</strong>: saves the current content to the server. A code is created if it’s the first save.</li>
+          <li><strong>Load</strong>: loads a previously saved document using its code.</li>
+          <li><strong>Clear</strong>: erases the current content (a confirmation message is shown).</li>
+          <li><strong>Download</strong>: exports the text as a .txt and/or .html file (works best on PC).</li>
+          <li><strong>Upload</strong>: imports a .txt or .html file into the editor (only works on modern browsers).</li>
+          <li><strong>Delete Document</strong>: permanently removes the document from the server. This action cannot be undone.</li>
+          <li><strong>Theme</strong>: toggles between light and dark mode.</li>
+          <li><strong>Language</strong>: switches between Portuguese and English.</li>
+        </ul>
+        
+        <p><strong>SECURITY NOTICE</strong></p>
+        <p>This is an alpha version of the editor. Files are not stored with encryption, and anyone who knows your document code can access its content. Keep your code secure and use this tool at your own risk.</p>
+        <p>Security mechanisms will be added in future updates. For now, the focus is on the app’s core functionality.</p>
+			<div style="text-align: center; margin-top: 16px;">
+				<p><em>Created by Pedro Nogueira</em></p>
+				<p><em>Version 0.0.1</em></p>
+				<p><em>(05.2025)</em></p>
+			</div>
+		</div>        
+      <button id="help-ok-btn" data-i18n-key="modalHelpOK">OK</button>
+    </div>
+  </div>
+
+  <div id="delete-modal" class="modal">
+    <div class="modal-content">
+      <p data-i18n-key="modalDeleteConfirm">Tem certeza que deseja deletar este documento? Esta ação é irreversível.</p>
+      <button id="delete-confirm-btn" data-i18n-key="modalDeleteYes">Sim, deletar</button>
+      <button id="delete-cancel-btn" data-i18n-key="modalDeleteNo">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="alert" class="floating-alert"></div>
+
+  <script>
+    const i18n = {
+      pt: {
+        title: "Editor Simples para Kindle",
+        btnSave: "Salvar",
+        btnLoad: "Carregar",
+        btnNew: "Novo",
+        btnClear: "Limpar",
+        btnDownload: "Download",
+        btnUpload: "Upload",
+        btnHelp: "Ajuda",
+        btnBold: "Negrito",
+        btnItalic: "Itálico",
+        btnUnderline: "Sublinhado",
+        btnStrike: "Riscado",
+        btnMark: "Marcar",
+        btnFontDecrease: "A-",
+        btnFontIncrease: "A+",
+        btnAlignLeft: "Esquerda",
+        btnAlignCenter: "Centralizar",
+        btnAlignRight: "Direita",
+        btnJustify: "Justificar",
+        btnRemoveFormat: "Limpar Formatação",
+        btnUndo: "Desfazer",
+        btnRedo: "Refazer",
+        btnCopy: "Copiar",
+        btnCut: "Recortar",
+        btnPaste: "Colar",
+        btnSelectAll: "Selecionar Tudo",
+        btnDelete: "Delete",
+        btnUp: "↑",
+        btnDown: "↓",
+        btnLeft: "←",
+        btnRight: "→",
+        statusWords: "Palavras",
+        statusChars: "Caracteres",
+        modalClearQuestion: "Deseja limpar o documento atual?",
+        modalClearYes: "Sim",
+        modalClearNo: "Não",
+        modalLoadPrompt: "Digite o código do documento:",
+        modalLoadOK: "OK",
+        modalLoadCancel: "Cancelar",
+        modalDownloadPrompt: "Escolha formato para download:",
+        modalDownloadTxt: "TXT",
+        modalDownloadHtml: "HTML",
+        modalUploadPrompt: "Selecione arquivo (TXT ou HTML):",
+        modalHelpText: "Criado por Pedro Nogueira - versão 0.0.1 (05.2025)",
+        modalHelpOK: "OK",
+		btnDeleteDoc: "Deletar Documento",
+		modalDeleteConfirm: "Tem certeza que deseja deletar este documento? Esta ação é irreversível.",
+		modalDeleteYes: "Sim, deletar",
+		modalDeleteNo: "Cancelar",
+		deleteSuccess: "Documento deletado com sucesso.",
+		deleteError: "Erro ao deletar documento",
+		themeLight: "Claro",
+		themeDark: "Escuro",
+		docCodeLabel: "Código do Documento:"
+      },
+      en: {
+        title: "Simple Kindle Editor",
+        btnSave: "Save",
+        btnLoad: "Load",
+        btnNew: "New",
+        btnClear: "Clear",
+        btnDownload: "Download",
+        btnUpload: "Upload",
+        btnHelp: "Help",
+        btnBold: "Bold",
+        btnItalic: "Italic",
+        btnUnderline: "Underline",
+        btnStrike: "Strikethrough",
+        btnMark: "Highlight",
+        btnFontDecrease: "A-",
+        btnFontIncrease: "A+",
+        btnAlignLeft: "Left",
+        btnAlignCenter: "Center",
+        btnAlignRight: "Right",
+        btnJustify: "Justify",
+        btnRemoveFormat: "Clear Format",
+        btnUndo: "Undo",
+        btnRedo: "Redo",
+        btnCopy: "Copy",
+        btnCut: "Cut",
+        btnPaste: "Paste",
+        btnSelectAll: "Select All",
+        btnDelete: "Delete",
+        btnUp: "↑",
+        btnDown: "↓",
+        btnLeft: "←",
+        btnRight: "→",
+        statusWords: "Words",
+        statusChars: "Chars",
+        modalClearQuestion: "Clear current document?",
+        modalClearYes: "Yes",
+        modalClearNo: "No",
+        modalLoadPrompt: "Enter document code:",
+        modalLoadOK: "OK",
+        modalLoadCancel: "Cancel",
+        modalDownloadPrompt: "Choose format for download:",
+        modalDownloadTxt: "TXT",
+        modalDownloadHtml: "HTML",
+        modalUploadPrompt: "Select file (TXT or HTML):",
+        modalHelpText: "Created by Pedro Nogueira - version 0.0.1 (05.2025)",
+        modalHelpOK: "OK",
+		btnDeleteDoc: "Delete Document",
+		modalDeleteConfirm: "Are you sure you want to delete this document? This action is irreversible.",
+		modalDeleteYes: "Yes, delete it",
+		modalDeleteNo: "Cancel",
+		deleteSuccess: "Document deleted successfully.",
+		deleteError: "Error deleting document",
+		themeLight: "Light",
+		themeDark: "Dark",
+		docCodeLabel: "Document Code:"
+      }
+    };
+  </script>
+
+
+	<script>
+	  // Elementos e variáveis
+	  const editor = document.getElementById('editor');
+	  const statusEl = document.getElementById('status');
+	  const docCodeEl = document.getElementById('doc-code');
+	  const alertEl = document.getElementById('alert');
+	  const saveBtn = document.getElementById('save-btn');
+	  const newBtn = document.getElementById('new-btn');
+	  const markBtn = document.getElementById('mark-btn');
+	  const removeFormatBtn = document.getElementById('remove-format-btn');
+	  const cbPt = document.getElementById('lang-pt');
+	  const cbEn = document.getElementById('lang-en');
+	  let internalClipboard = '';
+	  let currentLang = 'pt';
+	
+	  // Traduções (mantenha todo seu objeto i18n aqui)
+	
+	  function applyLanguage(lang) {
+	    currentLang = lang;
+	    document.documentElement.lang = lang === 'pt' ? 'pt-BR' : 'en';
+	    Object.entries(i18n[lang]).forEach(([key, val]) => {
+	      document.querySelectorAll(`[data-i18n-key="${key}"]`)
+	              .forEach(el => el.textContent = val);
+	    });
+	    document.querySelectorAll('[data-i18n-placeholder-key]').forEach(el => {
+	      const key = el.getAttribute('data-i18n-placeholder-key');
+	      el.placeholder = i18n[lang][key] || '';
+	    });
+	    updateCount();
+		updateHelpContent();
+	  }
+	  
+	  function updateHelpContent() {
+	  document.getElementById('help-content-pt').style.display = currentLang === 'pt' ? 'block' : 'none';
+	  document.getElementById('help-content-en').style.display = currentLang === 'en' ? 'block' : 'none';
+	  }
+	
+	  function showAlert(msg) {
+	    alertEl.textContent = msg;
+	    alertEl.style.display = 'block';
+	    setTimeout(() => alertEl.style.display = 'none', 2000);
+	  }
+	
+	  function updateCount() {
+	    const txt = editor.innerText || '';
+	    const words = txt.trim().split(/\s+/).filter(w => w).length;
+	    const chars = txt.length;
+	    const labels = { pt: ['Palavras','Caracteres'], en: ['Words','Chars'] };
+	    statusEl.textContent = `${labels[currentLang][0]}: ${words} | ${labels[currentLang][1]}: ${chars}`;
+	    updateToolbar();
+	  }
+	
+	  function updateToolbar() {
+	    ['bold','italic','underline','strikeThrough'].forEach(cmd => {
+	      const btn = document.querySelector(`[data-cmd="${cmd}"]`);
+	      btn.classList.toggle('active', document.queryCommandState(cmd));
+	    });
+	    ['justifyLeft','justifyCenter','justifyRight','justifyFull'].forEach(cmd => {
+	      const btn = document.querySelector(`[data-cmd="${cmd}"]`);
+	      btn && btn.classList.toggle('active', document.queryCommandState(cmd));
+	    });
+	    const sel = window.getSelection();
+	    let inMark = false;
+	    if (sel.anchorNode) {
+	      let n = sel.anchorNode.nodeType===1 ? sel.anchorNode : sel.anchorNode.parentNode;
+	      while (n && n !== editor) {
+	        if (n.nodeName === 'MARK') { inMark = true; break; }
+	        n = n.parentNode;
+	      }
+	    }
+	    markBtn.classList.toggle('active', inMark);
+	  }
+	
+	  document.addEventListener('selectionchange', updateToolbar);
+	
+	  // Exec commands
+	  document.querySelectorAll('[data-cmd]').forEach(btn => {
+	    btn.addEventListener('click', () => {
+	      document.execCommand(btn.getAttribute('data-cmd'), false, null);
+	      editor.focus(); updateCount();
+	    });
+	  });
+	
+	  // Fonte
+	  document.getElementById('font-increase').addEventListener('click', () => {
+	    editor.style.fontSize = `${parseInt(getComputedStyle(editor).fontSize)+2}px`;
+	    editor.focus();
+	  });
+	  document.getElementById('font-decrease').addEventListener('click', () => {
+	    editor.style.fontSize = `${Math.max(12,parseInt(getComputedStyle(editor).fontSize)-2)}px`;
+	    editor.focus();
+	  });
+	
+	  // Marcar / desmarcar
+	  markBtn.addEventListener('click', () => {
+	    const sel = window.getSelection();
+	    if (!sel.rangeCount) return;
+	    const anchor = sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentNode;
+	    const existing = anchor.closest('mark');
+	    if (existing) {
+	      const parent = existing.parentNode;
+	      const after = document.createRange();
+	      after.setStartAfter(existing);
+	      after.collapse(true);
+	      while (existing.firstChild) parent.insertBefore(existing.firstChild, existing);
+	      parent.removeChild(existing);
+	      sel.removeAllRanges(); sel.addRange(after);
+	    } else {
+	      const range = sel.getRangeAt(0);
+	      const m = document.createElement('mark');
+	      m.appendChild(range.extractContents());
+	      range.insertNode(m);
+	      sel.removeAllRanges();
+	      const nr = document.createRange(); nr.selectNodeContents(m); sel.addRange(nr);
+	    }
+	    editor.focus(); updateCount();
+	  });
+	
+	  // Limpar formatação + marcas
+	  removeFormatBtn.addEventListener('click', () => {
+	    document.execCommand('removeFormat', false, null);
+	    editor.querySelectorAll('mark').forEach(m => {
+	      const p = m.parentNode;
+	      while (m.firstChild) p.insertBefore(m.firstChild, m);
+	      p.removeChild(m);
+	    });
+	    editor.focus(); updateCount();
+	  });
+	
+	  // Clipboard e navegação
+	  ['copy-btn','cut-btn','paste-btn','select-all-btn','delete-btn'].forEach(id => {
+	    document.getElementById(id).addEventListener('click', () => {
+	      switch(id) {
+	        case 'copy-btn': internalClipboard = window.getSelection().toString()||editor.innerText; break;
+	        case 'cut-btn': internalClipboard = window.getSelection().toString()||editor.innerText; document.execCommand('delete'); break;
+	        case 'paste-btn': if(internalClipboard) document.execCommand('insertText',false,internalClipboard); break;
+	        case 'select-all-btn': document.execCommand('selectAll',false,null); break;
+	        case 'delete-btn': document.execCommand('forwardDelete')||document.execCommand('delete'); break;
+	      }
+	      editor.focus(); updateCount();
+	    });
+	  });
+	
+	  function moveCursor(a,d,g) {
+	    const s = window.getSelection();
+	    if (!s.rangeCount) return;
+	    if (!s.isCollapsed) s.collapseToStart();
+	    s.modify(a,d,g);
+	    editor.focus();
+	  }
+	  document.getElementById('nav-up').addEventListener('click',    () => moveCursor('move','backward','line'));
+	  document.getElementById('nav-down').addEventListener('click',  () => moveCursor('move','forward','line'));
+	  document.getElementById('nav-left').addEventListener('click',  () => moveCursor('move','backward','character'));
+	  document.getElementById('nav-right').addEventListener('click', () => moveCursor('move','forward','character'));
+	
+	  // Modais
+	  function setupModal(btn, modal, ok, cancel, fn) {
+	    const b = document.getElementById(btn);
+	    if (b && modal) b.addEventListener('click', () => {
+	      document.getElementById(modal).style.display = 'flex';
+	    });
+	    if (ok)     document.getElementById(ok).addEventListener('click',    () => { fn(); document.getElementById(modal).style.display='none'; editor.focus(); });
+	    if (cancel) document.getElementById(cancel).addEventListener('click',() => { document.getElementById(modal).style.display='none'; editor.focus(); });
+	  }
+	  setupModal('clear-btn','confirm-modal','confirm-yes','confirm-no',()=>{
+	    document.execCommand('selectAll',false,null);
+	    document.execCommand('delete',false,null);
+	    saveBtn.disabled = false;
+	  });
+	  setupModal('load-btn','load-modal', null, 'load-cancel-btn', ()=>{});
+	  setupModal('download-btn','download-modal','download-confirm-btn','download-cancel-btn',()=>{
+	    const t = document.getElementById('download-txt').checked;
+	    const h = document.getElementById('download-html').checked;
+	    if (t) {
+	      const blob = new Blob([editor.innerText],{type:'text/plain'});
+	      const a = document.createElement('a');
+	      a.href = URL.createObjectURL(blob);
+	      a.download = `${docCodeEl.textContent}.txt`;
+	      a.click();
+	    }
+	    if (h) {
+	      const blob = new Blob([editor.innerHTML],{type:'text/html'});
+	      const a = document.createElement('a');
+	      a.href = URL.createObjectURL(blob);
+	      a.download = `${docCodeEl.textContent}.html`;
+	      a.click();
+	    }
+	  });
+	  setupModal('upload-btn','upload-modal','upload-confirm-btn','upload-cancel-btn',()=>{
+	    const f = document.getElementById('upload-input').files[0];
+	    if (f) {
+	      const r = new FileReader();
+	      r.onload = e => {
+	        if (f.name.toLowerCase().endsWith('.html')) editor.innerHTML = e.target.result;
+	        else editor.innerText = e.target.result;
+	        saveBtn.disabled = false;
+	        updateCount();
+	      };
+	      r.readAsText(f);
+	    }
+	  });
+	  setupModal('help-btn','help-modal','help-ok-btn',null,()=>{});
+	
+	  // Novo (apenas UI, sem criar no servidor)
+	  newBtn.addEventListener('click', () => {
+	    editor.innerHTML = '';
+	    docCodeEl.textContent = '------';
+	    internalClipboard = '';
+	    saveBtn.disabled = false;
+	    updateCount();
+	  });
+	
+	  // *** Salvar via backend (cria só na primeira vez) ***
+	saveBtn.addEventListener('click', async () => {
+	  let code = docCodeEl.textContent;
+	  console.log('[DEBUG] Iniciando save, código atual:', code);
+	
+	  try {
+	    // Se ainda não foi criado no servidor, crie agora
+	    if (code === '------') {
+	      console.log('[DEBUG] First save → criando documento no backend');
+	      const createRes = await fetch('/documents', { method: 'POST' });
+	      console.log('[DEBUG] POST /documents status:', createRes.status);
+	      const createText = await createRes.text();
+	      console.log('[DEBUG] POST body:', createText);
+	      if (!createRes.ok) {
+	        const err = JSON.parse(createText).error || createRes.status;
+	        return showAlert(`Erro ao criar doc: ${err}`);
+	      }
+	      const { code: newCode } = JSON.parse(createText);
+	      code = newCode;
+	      docCodeEl.textContent = code;
+	      console.log('[DEBUG] Novo código gerado:', code);
+	    }
+	
+	    // Agora grave o conteúdo
+	    console.log('[DEBUG] PUT /documents/' + code);
+	    const saveRes = await fetch(`/documents/${code}`, {
+	      method: 'PUT',
+	      headers: { 'Content-Type': 'application/json' },
+	      body: JSON.stringify({ content: editor.innerHTML })
+	    });
+	    console.log('[DEBUG] PUT status:', saveRes.status);
+	    const saveText = await saveRes.text();
+	    console.log('[DEBUG] PUT body:', saveText);
+	    if (!saveRes.ok) {
+	      const err = JSON.parse(saveText).error || saveRes.status;
+	      return showAlert(`Erro ao salvar: ${err}`);
+	    }
+	
+	    // Sucesso
+	    saveBtn.disabled = true;
+	    showAlert(i18n[currentLang].btnSave + ' OK');
+	  } catch (error) {
+	    console.error('[DEBUG] Exceção no save:', error);
+	    showAlert('Erro ao salvar: ' + error.message);
+	  }
+	});
+		
+	  // Carregar via backend
+	  document.getElementById('load-confirm-btn').addEventListener('click', async () => {
+	    const code = document.getElementById('load-code-input').value.trim().toUpperCase();
+	    if (!code) return;
+	    try {
+	      const resp = await fetch(`/documents/${code}`);
+	      if (!resp.ok) {
+	        showAlert(i18n[currentLang].btnLoad + ' não encontrado');
+	        return;
+	      }
+	      const { content } = await resp.json();
+	      editor.innerHTML = content;
+	      docCodeEl.textContent = code;
+	      saveBtn.disabled = true;
+	      updateCount();
+	      document.getElementById('load-modal').style.display = 'none';
+	    } catch {
+	      showAlert('Erro ao carregar');
+	    }
+	  });
+	
+	  // Idiomas
+	  cbPt.addEventListener('change', () => {
+	    if (cbPt.checked) { cbEn.checked = false; applyLanguage('pt'); }
+	    else cbPt.checked = true;
+	  });
+	  cbEn.addEventListener('change', () => {
+	    if (cbEn.checked) { cbPt.checked = false; applyLanguage('en'); }
+	    else cbEn.checked = true;
+	  });
+	
+	  // Inicialização
+	  document.addEventListener('DOMContentLoaded', () => {
+	    applyLanguage('pt');
+	    updateCount();
+	    // não chama newBtn aqui: só cria arquivo no servidor ao salvar
+	  });
+	  editor.addEventListener('input', () => { updateCount(); saveBtn.disabled = false; });
+	  
+	  document.getElementById('delete-doc-btn').addEventListener('click', () => {
+	    document.getElementById('delete-modal').style.display = 'flex';
+	  });
+	  
+	  document.getElementById('delete-cancel-btn').addEventListener('click', () => {
+	    document.getElementById('delete-modal').style.display = 'none';
+	  });
+	  
+	  document.getElementById('delete-confirm-btn').addEventListener('click', async () => {
+	    const code = document.getElementById('doc-code').textContent;
+	    if (!code || code === '------') {
+	      alert('Nenhum documento para deletar.');
+	      return;
+	    }
+	    try {
+	      const res = await fetch(`/documents/${code}`, { method: 'DELETE' });
+	      if (!res.ok) throw new Error('Erro ao deletar');
+	      document.getElementById('doc-code').textContent = '------';
+	      document.getElementById('editor').innerHTML = '';
+	      document.getElementById('delete-modal').style.display = 'none';
+	      showAlert(i18n[currentLang].deleteSuccess);
+	    } catch (err) {
+	      showAlert(i18n[currentLang].deleteError + ': ' + err.message);
+	    }
+	  });	  
+	
+	document.getElementById('theme-select').addEventListener('change', e => {
+	const theme = e.target.value;
+	document.body.classList.toggle('dark', theme === 'dark');
+	});
+	
+	</script>
+</body>
+</html>
