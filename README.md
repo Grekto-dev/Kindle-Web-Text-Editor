@@ -29,27 +29,8 @@ Designed for speed and simplicity, Kindle Web Text Editor supports plain and ric
 
 ## 🔧 Current Stage
 
-- **Alpha (v0.0.1)** — core editing, save/load, theming, i18n, and basic upload/download.
+- **Alpha** — core editing, save/load, theming, i18n, and basic upload/download.
 - **Disclaimer**: Documents are **not encrypted**; anyone with your code can view or overwrite your text. Use at your own risk. Security enhancements are planned for future releases.
-
----
-
-## 📦 What’s in this Repo
-
-```
-/
-├── backend/
-│   └── index.js             # Express server (POST/GET/PUT/DELETE)
-├── frontend/
-│   └── index.html           # Editor UI with theming, i18n, code-based save/load
-├── Dockerfile               # Builds a self-contained Docker image
-├── package.json             # Node.js dependencies and start script
-├── package-lock.json        # Locked dependency versions
-├── .gitignore               # Excludes node_modules, backend/data/, etc.
-└── README.md                # You are here
-```
-
-> **Note**: Do **not** commit `backend/data/`—it’s created at runtime inside the container.
 
 ---
 
